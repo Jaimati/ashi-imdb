@@ -1,0 +1,65 @@
+import React, { useState, useEffect, useCallback } from "react";
+import { motion } from "framer-motion";
+import { debounce } from "lodash";
+import { Star } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+
+const mockApiCall = (rating) => {
+  return new Promise((resolve) => {
+    setTimeout(() => resolve({ success: true, averageRating: rating }), 500);
+  });
+};
+
+const StarRating = ({ movieTitle }) => {
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [averageRating, setAverageRating] = useState(4.2);
+
+  const updateRating = useCallback(
+    debounce(async (newRating) => {
+      const response = await mockApiCall(newRating);
+      if (response.success) {
+        setAverageRating(response.averageRating);
+      }
+    }, 800),
+    []
+  );
+
+  const handleRating = (rate) => {
+    setRating(rate);
+    updateRating(rate);
+  };
+
+  return (
+    <Card className="p-4 w-80 bg-gray-900 text-white rounded-2xl shadow-lg">
+      <CardContent className="flex flex-col items-center">
+        <h2 className="text-xl font-semibold mb-2">{movieTitle}</h2>
+        <div className="flex mb-2">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <motion.div
+              key={star}
+              whileHover={{ scale: 1.2 }}
+              whileTap={{ scale: 0.9 }}
+              className="cursor-pointer"
+              onMouseEnter={() => setHoverRating(star)}
+              onMouseLeave={() => setHoverRating(0)}
+              onClick={() => handleRating(star)}
+            >
+              <Star
+                className={`w-6 h-6 mx-1 transition-all duration-300 ${
+                  (hoverRating || rating) >= star ? "text-yellow-400" : "text-gray-600"
+                }`}
+              />
+            </motion.div>
+          ))}
+        </div>
+        <p className="text-sm">Your Rating: {rating || "Not rated"}</p>
+        <p className="text-sm mt-1">Avg. Rating: {averageRating.toFixed(1)}</p>
+        <Button className="mt-3" onClick={() => setRating(0)}>Reset</Button>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default StarRating;

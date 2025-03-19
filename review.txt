@@ -1,0 +1,80 @@
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { debounce } from "lodash";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+const fetchReviews = async () => {
+  const res = await fetch("/api/reviews");
+  return res.json();
+};
+
+const saveDraft = debounce(async (review) => {
+  localStorage.setItem("review-draft", review);
+}, 1000);
+
+export default function ReviewSystem() {
+  const queryClient = useQueryClient();
+  const { data: reviews, isLoading } = useQuery({ queryKey: ["reviews"], queryFn: fetchReviews });
+  const [reviewText, setReviewText] = useState(localStorage.getItem("review-draft") || "");
+  
+  const mutation = useMutation({
+    mutationFn: async (newReview) => {
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: newReview })
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reviews"] });
+      setReviewText("");
+      localStorage.removeItem("review-draft");
+    }
+  });
+
+  const handleReviewChange = (e) => {
+    setReviewText(e.target.value);
+    saveDraft(e.target.value);
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto p-4">
+      <Card>
+        <CardContent>
+          <Textarea
+            placeholder="Write your review..."
+            value={reviewText}
+            onChange={handleReviewChange}
+          />
+          <Button onClick={() => mutation.mutate(reviewText)} disabled={!reviewText.trim()} className="mt-2">
+            Submit Review
+          </Button>
+        </CardContent>
+      </Card>
+
+      {isLoading ? (
+        <p>Loading reviews...</p>
+      ) : (
+        reviews?.map((review) => (
+          <motion.div 
+            key={review.id} 
+            initial={{ opacity: 0, y: 10 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            exit={{ opacity: 0, y: -10 }} 
+            className="mt-4 p-4 border rounded-lg"
+          >
+            <p>{review.text}</p>
+            <div className="flex gap-2 mt-2">
+              <Button variant="ghost">👍 {review.upvotes}</Button>
+              <Button variant="ghost">👎 {review.downvotes}</Button>
+            </div>
+          </motion.div>
+        ))
+      )}
+    </div>
+  );
+}
